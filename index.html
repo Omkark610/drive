@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Time</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
+<style>
+  :root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #000;
+    background-image: radial-gradient(ellipse at center, #111 0%, #000 70%);
+    color: #f1ead9;
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+    overflow: hidden;
+  }
+  .wrap {
+    max-width: 90%; text-align: center; padding: 0 5vw;
+    font-size: clamp(1.9rem, 5vw, 4.5rem);
+    font-weight: 700; font-style: italic;
+  }
+  #text {
+    line-height: 1.25;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 40px rgba(230, 200, 140, 0.15);
+  }
+  .cursor {
+    display: inline-block;
+    margin-left: 0.2em;
+    font-size: 0.8em;
+    line-height: 1;
+    font-style: normal;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  #start {
+    position: fixed; inset: 0; background: #000;
+    display: flex; align-items: center; justify-content: center;
+    color: #d4af6a; font-size: 1.1rem; letter-spacing: 0.5em; text-transform: uppercase;
+    cursor: pointer; z-index: 10; transition: opacity 0.8s ease;
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  #start.hide { opacity: 0; pointer-events: none; animation: none; }
+  @keyframes pulse { 50% { opacity: 0.45; } }
+  #mute {
+    position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    background: none; border: 1px solid rgba(212,175,106,0.4); color: #d4af6a;
+    font: inherit; font-size: 0.9rem; letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 8px 14px; border-radius: 2px; cursor: pointer; opacity: 0; transition: opacity 1s;
+  }
+  #mute.show { opacity: 0.7; }
+</style>
+</head>
+<body>
+  <div id="start">Tap to begin</div>
+  <button id="mute">Sound on</button>
+  <div class="wrap"><span id="text"></span><span class="cursor">🫀</span></div>
+<script>
+  const full = "Time is a luxury we can't afford to waste.";
+  const el = document.getElementById("text");
+  let i = 0;
+  function type() {
+    if (i < full.length) {
+      el.textContent += full[i++];
+      setTimeout(type, 60 + Math.random() * 90);
+    }
+  }
+
+  // Heartbeat synthesized with Web Audio (no external files)
+  let ctx, master, muted = false, timer;
+  function thump(freq, when, vol) {
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, when);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.45, when + 0.14);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(vol, when + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 0.22);
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 220;
+    osc.connect(lp).connect(g).connect(master);
+    osc.start(when); osc.stop(when + 0.25);
+  }
+  function tick() {
+    const t = ctx.currentTime + 0.02;
+    thump(75, t, 1.0);          // lub
+    thump(62, t + 0.28, 0.7);   // dub
+  }
+  function startSound() {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
+    if (ctx.state === "suspended") ctx.resume();
+    tick(); timer = setInterval(tick, 950);
+  }
+
+  const startEl = document.getElementById("start");
+  const muteBtn = document.getElementById("mute");
+  startEl.addEventListener("click", () => {
+    try { startSound(); } catch (e) { console.error(e); }
+    startEl.classList.add("hide");
+    setTimeout(() => startEl.remove(), 900);
+    muteBtn.classList.add("show");
+    setTimeout(type, 700);
+  }, { once: true });
+
+  muteBtn.addEventListener("click", () => {
+    muted = !muted;
+    if (master) master.gain.value = muted ? 0 : 0.9;
+    muteBtn.textContent = muted ? "Sound off" : "Sound on";
+  });
+</script>
+</body>
+</html>
